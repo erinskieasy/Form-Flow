@@ -266,7 +266,7 @@ export default function ScholarshipForm() {
                       <FormItem>
                         <FormLabel>Middle Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter middle name" data-testid="input-middlename" {...field} />
+                          <Input placeholder="Enter middle name" data-testid="input-middlename" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -630,7 +630,7 @@ export default function ScholarshipForm() {
                         <FormItem>
                           <FormLabel>Name of Previous Programme</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter programme name" data-testid="input-transfer-programme" {...field} />
+                            <Input placeholder="Enter programme name" data-testid="input-transfer-programme" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -686,7 +686,8 @@ export default function ScholarshipForm() {
                           placeholder="List your major achievements in academics and sports..."
                           className="resize-none min-h-[100px]"
                           data-testid="input-accomplishments"
-                          {...field} 
+                          {...field}
+                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormMessage />
@@ -727,7 +728,7 @@ export default function ScholarshipForm() {
                         <FormItem>
                           <FormLabel>Year and Category</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., 2023 - Senior Team" data-testid="input-national-details" {...field} />
+                            <Input placeholder="e.g., 2023 - Senior Team" data-testid="input-national-details" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -742,7 +743,7 @@ export default function ScholarshipForm() {
                     <FormItem>
                       <FormLabel>Affiliation (Clubs, etc.)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., MVP Track Club" data-testid="input-affiliation" {...field} />
+                        <Input placeholder="e.g., MVP Track Club" data-testid="input-affiliation" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -791,7 +792,7 @@ export default function ScholarshipForm() {
                       <FormItem>
                         <FormLabel>Middle Initial</FormLabel>
                         <FormControl>
-                          <Input placeholder="M" maxLength={1} data-testid="input-parent-middle" {...field} />
+                          <Input placeholder="M" maxLength={1} data-testid="input-parent-middle" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
