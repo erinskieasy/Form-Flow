@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { type ScholarshipApplication } from "@shared/schema";
+import { type ScholarshipApplicationWithRelations } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +37,9 @@ import { format } from "date-fns";
 
 export default function ApplicationsList() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedApplication, setSelectedApplication] = useState<ScholarshipApplication | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<ScholarshipApplicationWithRelations | null>(null);
 
-  const { data: applications, isLoading, error } = useQuery<ScholarshipApplication[]>({
+  const { data: applications, isLoading, error } = useQuery<ScholarshipApplicationWithRelations[]>({
     queryKey: ["/api/applications"],
   });
 
@@ -54,13 +54,13 @@ export default function ApplicationsList() {
     );
   });
 
-  const getTotalScholarship = (app: ScholarshipApplication) => {
+  const getTotalScholarship = (app: ScholarshipApplicationWithRelations) => {
     const sem1 = app.semester1Amount || 0;
     const sem2 = app.semester2Amount || 0;
     return sem1 + sem2;
   };
 
-  const getScholarshipTypes = (app: ScholarshipApplication) => {
+  const getScholarshipTypes = (app: ScholarshipApplicationWithRelations) => {
     const types = [];
     if (app.scholarshipTuition) types.push("Tuition");
     if (app.scholarshipAccommodation) types.push("Accommodation");
@@ -357,10 +357,14 @@ export default function ApplicationsList() {
                           <span>{selectedApplication.nationalRepDetails}</span>
                         </div>
                       )}
-                      {selectedApplication.affiliation && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Affiliation</span>
-                          <span>{selectedApplication.affiliation}</span>
+                      {selectedApplication.affiliations && selectedApplication.affiliations.length > 0 && (
+                        <div className="mt-3">
+                          <span className="text-muted-foreground text-sm">Affiliations:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedApplication.affiliations.map((aff) => (
+                              <Badge key={aff.id} variant="outline">{aff.name}</Badge>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -376,28 +380,40 @@ export default function ApplicationsList() {
                     <h4 className="font-semibold flex items-center gap-2">
                       <Users className="h-4 w-4 text-primary" />
                       Parent/Guardian Information
+                      {selectedApplication.guardians && selectedApplication.guardians.length > 1 && (
+                        <Badge variant="secondary" className="ml-2">{selectedApplication.guardians.length}</Badge>
+                      )}
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Name</span>
-                          <span>{selectedApplication.parentFirstName} {selectedApplication.parentMiddleInitial} {selectedApplication.parentSurname}</span>
+                    <div className="space-y-4">
+                      {selectedApplication.guardians && selectedApplication.guardians.map((guardian, index) => (
+                        <div key={guardian.id} className="border rounded-lg p-4 space-y-2">
+                          {selectedApplication.guardians.length > 1 && (
+                            <span className="text-xs text-muted-foreground">Guardian {index + 1}</span>
+                          )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Name</span>
+                                <span>{guardian.firstName} {guardian.middleInitial} {guardian.surname}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Relation</span>
+                                <span>{guardian.relation}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-start gap-2">
+                                <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                <span>{guardian.telephone}</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                <span>{guardian.address}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Relation</span>
-                          <span>{selectedApplication.parentRelation}</span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
-                          <span>{selectedApplication.parentTelephone}</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                          <span>{selectedApplication.parentAddress}</span>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
 

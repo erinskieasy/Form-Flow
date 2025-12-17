@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -21,7 +21,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { User, Phone, BookOpen, Trophy, Users, DollarSign, Loader2 } from "lucide-react";
+import { User, Phone, BookOpen, Trophy, Users, DollarSign, Loader2, Plus, Trash2 } from "lucide-react";
 import utechGateImage from "@assets/utech-gate_1766011067612.jpg";
 
 export default function ScholarshipForm() {
@@ -57,19 +57,24 @@ export default function ScholarshipForm() {
       majorAccomplishments: "",
       nationalRepresentative: false,
       nationalRepDetails: "",
-      affiliation: "",
       scholarshipTuition: false,
       scholarshipAccommodation: false,
       scholarshipBooks: false,
       semester1Amount: undefined,
       semester2Amount: undefined,
-      parentSurname: "",
-      parentFirstName: "",
-      parentMiddleInitial: "",
-      parentRelation: "",
-      parentTelephone: "",
-      parentAddress: "",
+      guardians: [{ surname: "", firstName: "", middleInitial: "", relation: "", telephone: "", address: "" }],
+      affiliations: [],
     },
+  });
+
+  const { fields: guardianFields, append: appendGuardian, remove: removeGuardian } = useFieldArray({
+    control: form.control,
+    name: "guardians",
+  });
+
+  const { fields: affiliationFields, append: appendAffiliation, remove: removeAffiliation } = useFieldArray({
+    control: form.control,
+    name: "affiliations",
   });
 
   const submitMutation = useMutation({
@@ -202,7 +207,7 @@ export default function ScholarshipForm() {
                               data-testid="checkbox-tuition"
                             />
                           </FormControl>
-                          <FormLabel className="text-sm font-normal cursor-pointer">Tuition</FormLabel>
+                          <FormLabel className="font-normal cursor-pointer mb-0">Tuition</FormLabel>
                         </FormItem>
                       )}
                     />
@@ -218,7 +223,7 @@ export default function ScholarshipForm() {
                               data-testid="checkbox-accommodation"
                             />
                           </FormControl>
-                          <FormLabel className="text-sm font-normal cursor-pointer">Accommodation</FormLabel>
+                          <FormLabel className="font-normal cursor-pointer mb-0">Accommodation</FormLabel>
                         </FormItem>
                       )}
                     />
@@ -234,7 +239,7 @@ export default function ScholarshipForm() {
                               data-testid="checkbox-books"
                             />
                           </FormControl>
-                          <FormLabel className="text-sm font-normal cursor-pointer">Books</FormLabel>
+                          <FormLabel className="font-normal cursor-pointer mb-0">Books</FormLabel>
                         </FormItem>
                       )}
                     />
@@ -380,7 +385,7 @@ export default function ScholarshipForm() {
                     name="studentId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Student ID Number *</FormLabel>
+                        <FormLabel>Student ID *</FormLabel>
                         <FormControl>
                           <Input placeholder="Enter student ID" data-testid="input-studentid" {...field} />
                         </FormControl>
@@ -395,7 +400,7 @@ export default function ScholarshipForm() {
                       <FormItem>
                         <FormLabel>Projected Year of Graduation *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., 2027" data-testid="input-graduation-year" {...field} />
+                          <Input placeholder="e.g., 2026" data-testid="input-gradyear" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -408,9 +413,9 @@ export default function ScholarshipForm() {
                     name="telephone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Telephone Number(s) *</FormLabel>
+                        <FormLabel>Telephone Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., 876-555-1234" data-testid="input-telephone" {...field} />
+                          <Input placeholder="e.g., 876-555-1234" data-testid="input-phone" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -423,7 +428,7 @@ export default function ScholarshipForm() {
                       <FormItem>
                         <FormLabel>Email Address *</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="your@email.com" data-testid="input-email" {...field} />
+                          <Input type="email" placeholder="student@utech.edu.jm" data-testid="input-email" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -438,7 +443,7 @@ export default function ScholarshipForm() {
                       <FormLabel>Home Address *</FormLabel>
                       <FormControl>
                         <Textarea 
-                          placeholder="Enter your full home address" 
+                          placeholder="Enter your full home address"
                           className="resize-none"
                           data-testid="input-address"
                           {...field} 
@@ -464,23 +469,9 @@ export default function ScholarshipForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Faculty/School *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-faculty">
-                              <SelectValue placeholder="Select faculty/school" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Faculty of Engineering and Computing">Faculty of Engineering and Computing</SelectItem>
-                            <SelectItem value="Faculty of Science and Sport">Faculty of Science and Sport</SelectItem>
-                            <SelectItem value="Faculty of Education and Liberal Studies">Faculty of Education and Liberal Studies</SelectItem>
-                            <SelectItem value="Faculty of The Built Environment">Faculty of The Built Environment</SelectItem>
-                            <SelectItem value="Faculty of Law">Faculty of Law</SelectItem>
-                            <SelectItem value="Faculty of Health Sciences">Faculty of Health Sciences</SelectItem>
-                            <SelectItem value="College of Business and Management">College of Business and Management</SelectItem>
-                            <SelectItem value="College of Oral Health Sciences">College of Oral Health Sciences</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <Input placeholder="e.g., Faculty of Engineering & Computing" data-testid="input-faculty" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -490,7 +481,7 @@ export default function ScholarshipForm() {
                     name="courseOfStudy"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Course of Study (Major) *</FormLabel>
+                        <FormLabel>Course of Study *</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g., Computer Science" data-testid="input-course" {...field} />
                         </FormControl>
@@ -505,9 +496,9 @@ export default function ScholarshipForm() {
                     name="yearStartedUtech"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Year Started UTECH *</FormLabel>
+                        <FormLabel>Year Started at UTECH *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., 2023" data-testid="input-year-started" {...field} />
+                          <Input placeholder="e.g., 2022" data-testid="input-startyear" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -527,37 +518,26 @@ export default function ScholarshipForm() {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
                     name="programmeType"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Type of Programme *</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="grid grid-cols-2 gap-3"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Undergraduate" id="undergraduate" data-testid="radio-undergraduate" />
-                              <Label htmlFor="undergraduate" className="font-normal cursor-pointer">Undergraduate</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Graduate" id="graduate" data-testid="radio-graduate" />
-                              <Label htmlFor="graduate" className="font-normal cursor-pointer">Graduate</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Diploma" id="diploma" data-testid="radio-diploma" />
-                              <Label htmlFor="diploma" className="font-normal cursor-pointer">Diploma</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Certificate" id="certificate" data-testid="radio-certificate" />
-                              <Label htmlFor="certificate" className="font-normal cursor-pointer">Certificate</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-programme-type">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Undergraduate">Undergraduate</SelectItem>
+                            <SelectItem value="Graduate">Graduate</SelectItem>
+                            <SelectItem value="Diploma">Diploma</SelectItem>
+                            <SelectItem value="Certificate">Certificate</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -568,51 +548,46 @@ export default function ScholarshipForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Programme Mode *</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex gap-6"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Part-time" id="parttime" data-testid="radio-parttime" />
-                              <Label htmlFor="parttime" className="font-normal cursor-pointer">Part-time</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="Full-time" id="fulltime" data-testid="radio-fulltime" />
-                              <Label htmlFor="fulltime" className="font-normal cursor-pointer">Full-time</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-programme-mode">
+                              <SelectValue placeholder="Select mode" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Full-time">Full-time</SelectItem>
+                            <SelectItem value="Part-time">Part-time</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="yearInSchool"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year in School *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-year">
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1st">1st Year</SelectItem>
+                            <SelectItem value="2nd">2nd Year</SelectItem>
+                            <SelectItem value="3rd">3rd Year</SelectItem>
+                            <SelectItem value="4th">4th Year</SelectItem>
+                            <SelectItem value="5th">5th Year</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="yearInSchool"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year in School *</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-wrap gap-4"
-                        >
-                          {["1st", "2nd", "3rd", "4th", "5th"].map((year) => (
-                            <div key={year} className="flex items-center gap-2">
-                              <RadioGroupItem value={year} id={`year-${year}`} data-testid={`radio-year-${year}`} />
-                              <Label htmlFor={`year-${year}`} className="font-normal cursor-pointer">{year}</Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <div className="space-y-4">
                   <FormField
                     control={form.control}
@@ -753,115 +728,188 @@ export default function ScholarshipForm() {
                     />
                   )}
                 </div>
-                <FormField
-                  control={form.control}
-                  name="affiliation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Affiliation (Clubs, etc.)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., MVP Track Club" data-testid="input-affiliation" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Affiliations (Clubs, Organizations, etc.)</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => appendAffiliation({ name: "" })}
+                      data-testid="button-add-affiliation"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  {affiliationFields.length === 0 && (
+                    <p className="text-sm text-muted-foreground italic">No affiliations added yet. Click "Add" to add one.</p>
                   )}
-                />
+                  <div className="space-y-3">
+                    {affiliationFields.map((field, index) => (
+                      <div key={field.id} className="flex items-center gap-2">
+                        <FormField
+                          control={form.control}
+                          name={`affiliations.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormControl>
+                                <Input 
+                                  placeholder="e.g., MVP Track Club" 
+                                  data-testid={`input-affiliation-${index}`}
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeAffiliation(index)}
+                          data-testid={`button-remove-affiliation-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                <Users className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl">Parent/Guardian/Contact Person</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-xl">Parent/Guardian/Contact Person</CardTitle>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => appendGuardian({ surname: "", firstName: "", middleInitial: "", relation: "", telephone: "", address: "" })}
+                  data-testid="button-add-guardian"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Guardian
+                </Button>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="parentSurname"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Surname *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter surname" data-testid="input-parent-surname" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="parentFirstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter first name" data-testid="input-parent-firstname" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="parentMiddleInitial"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Middle Initial</FormLabel>
-                        <FormControl>
-                          <Input placeholder="M" maxLength={1} data-testid="input-parent-middle" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="parentRelation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Relation *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Mother, Father, Guardian" data-testid="input-parent-relation" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="parentTelephone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telephone Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 876-555-1234" data-testid="input-parent-phone" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="parentAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address *</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Enter parent/guardian address"
-                          className="resize-none"
-                          data-testid="input-parent-address"
-                          {...field} 
+                {guardianFields.map((field, index) => (
+                  <Card key={field.id} className="border-dashed">
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-muted-foreground">Guardian {index + 1}</span>
+                        {guardianFields.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeGuardian(index)}
+                            data-testid={`button-remove-guardian-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`guardians.${index}.surname`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Surname *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter surname" data-testid={`input-guardian-surname-${index}`} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormField
+                          control={form.control}
+                          name={`guardians.${index}.firstName`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>First Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter first name" data-testid={`input-guardian-firstname-${index}`} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`guardians.${index}.middleInitial`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Middle Initial</FormLabel>
+                              <FormControl>
+                                <Input placeholder="M" maxLength={1} data-testid={`input-guardian-middle-${index}`} {...field} value={field.value || ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`guardians.${index}.relation`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Relation *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Mother, Father, Guardian" data-testid={`input-guardian-relation-${index}`} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`guardians.${index}.telephone`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Telephone Number *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 876-555-1234" data-testid={`input-guardian-phone-${index}`} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name={`guardians.${index}.address`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address *</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Enter guardian's address"
+                                className="resize-none"
+                                data-testid={`input-guardian-address-${index}`}
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+                {form.formState.errors.guardians && (
+                  <p className="text-sm text-destructive">{form.formState.errors.guardians.message}</p>
+                )}
               </CardContent>
             </Card>
 
