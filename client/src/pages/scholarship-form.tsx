@@ -21,7 +21,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { GraduationCap, User, Phone, BookOpen, Trophy, Users, DollarSign, Loader2 } from "lucide-react";
+import { User, Phone, BookOpen, Trophy, Users, DollarSign, Loader2 } from "lucide-react";
+import utechGateImage from "@assets/utech-gate_1766011067612.jpg";
 
 export default function ScholarshipForm() {
   const { toast } = useToast();
@@ -102,18 +103,34 @@ export default function ScholarshipForm() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="relative w-full h-64 md:h-80 overflow-hidden">
+        <img 
+          src={utechGateImage} 
+          alt="University of Technology Jamaica Campus" 
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+          <h1 className="text-2xl md:text-4xl font-light tracking-wide text-white mb-2" data-testid="text-page-title">
+            UNIVERSITY OF TECHNOLOGY, JAMAICA
+          </h1>
+          <div className="w-16 h-px bg-white/60 my-3" />
+          <p className="text-sm md:text-base text-white/90 font-light tracking-wider">
+            Department of Sport
+          </p>
+          <p className="text-xs md:text-sm text-white/70 italic mt-1">
+            "Home of World Class Athletes"
+          </p>
+        </div>
+      </div>
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <GraduationCap className="h-10 w-10 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground" data-testid="text-page-title">
-              UNIVERSITY OF TECHNOLOGY, JAMAICA
-            </h1>
-          </div>
-          <p className="text-lg text-muted-foreground">Department of Sport - "Home of World Class Athletes"</p>
-          <h2 className="text-xl font-semibold mt-4 text-foreground">Student Athlete Scholarship Information Form</h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-2xl mx-auto">
-            This form will provide detailed information on student athlete scholarship recipients. 
+          <h2 className="text-xl md:text-2xl font-medium text-foreground">
+            Student Athlete Scholarship Application
+          </h2>
+          <p className="text-sm text-muted-foreground mt-3 max-w-2xl mx-auto leading-relaxed">
+            This form collects detailed information on student athlete scholarship recipients. 
             All information provided will be kept in confidence and used for letters of recommendation, 
             contact purposes, and historical records.
           </p>
