@@ -4,11 +4,15 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+let pgPool: any = null;
+let pgDb: any = null;
+
+if (process.env.DATABASE_URL) {
+  pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+  pgDb = drizzle(pgPool, { schema });
+} else {
+  console.warn("DATABASE_URL not set; skipping Postgres initialization (MSSQL mode possible)");
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+export const pool = pgPool;
+export const db = pgDb;

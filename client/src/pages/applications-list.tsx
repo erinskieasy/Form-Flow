@@ -46,11 +46,11 @@ export default function ApplicationsList() {
   const filteredApplications = applications?.filter((app) => {
     const searchLower = searchTerm.toLowerCase();
     return (
-      app.firstName.toLowerCase().includes(searchLower) ||
-      app.surname.toLowerCase().includes(searchLower) ||
-      app.studentId.toLowerCase().includes(searchLower) ||
-      app.sport.toLowerCase().includes(searchLower) ||
-      app.facultySchool.toLowerCase().includes(searchLower)
+      (app.firstName ?? "").toLowerCase().includes(searchLower) ||
+      (app.surname ?? "").toLowerCase().includes(searchLower) ||
+      (app.studentId ?? "").toLowerCase().includes(searchLower) ||
+      (app.sport ?? "").toLowerCase().includes(searchLower) ||
+      (app.facultySchool ?? "").toLowerCase().includes(searchLower)
     );
   });
 
