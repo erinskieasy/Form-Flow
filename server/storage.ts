@@ -240,7 +240,9 @@ export class DatabaseStorage implements IStorage {
       return Promise.all(apps.map(app => this.enrichApplication(app)));
     }
 
-    const apps = await db.select().from(scholarship_applications).where(
+    if (!db) throw new Error("Postgres DATABASE_URL not configured");
+
+    const apps = await (db as any).select().from(scholarship_applications).where(
       or(
         ilike(scholarship_applications.firstName, searchPattern),
         ilike(scholarship_applications.surname, searchPattern),
