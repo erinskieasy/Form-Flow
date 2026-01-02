@@ -1,4 +1,5 @@
 import { useForm, useFieldArray } from "react-hook-form";
+import { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -27,6 +28,8 @@ import utechGateImage from "@assets/utech-gate_1766011067612.jpg";
 export default function ScholarshipForm() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [sessionUser, setSessionUser] = useState<{ id: string; email?: string; name?: string } | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const form = useForm<InsertScholarshipApplication>({
     resolver: zodResolver(insertScholarshipApplicationSchema),
@@ -106,6 +109,36 @@ export default function ScholarshipForm() {
   const didTransfer = form.watch("didTransfer");
   const isNationalRep = form.watch("nationalRepresentative");
 
+  useEffect(() => {
+    let mounted = true;
+    setCheckingSession(true);
+    apiRequest("GET", "/auth/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!mounted) return;
+        setSessionUser(data?.user ? data : null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSessionUser(null);
+      })
+      .finally(() => mounted && setCheckingSession(false));
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await apiRequest("POST", "/auth/signout");
+      setSessionUser(null);
+      toast({ title: "Signed out", description: "You have been signed out." });
+    } catch (err: any) {
+      toast({ title: "Sign out failed", description: err?.message || "Failed to sign out", variant: "destructive" });
+    }
+  }, [toast]);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="relative w-full h-64 md:h-80 overflow-hidden">
@@ -139,6 +172,22 @@ export default function ScholarshipForm() {
             All information provided will be kept in confidence and used for letters of recommendation, 
             contact purposes, and historical records.
           </p>
+        </div>
+
+        <div className="flex justify-end mb-6">
+          {checkingSession ? (
+            <span className="text-sm text-muted-foreground">Checking sign-in status...</span>
+          ) : sessionUser ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-foreground">Signed in as <strong>{sessionUser.email || sessionUser.name}</strong></span>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>Sign out</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Not signed in</span>
+              <Button size="sm" onClick={() => setLocation("/sign-in")}>Sign in</Button>
+            </div>
+          )}
         </div>
 
         <Form {...form}>

@@ -1,5 +1,7 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
+import authRouter, { requireSession } from "./auth-server";
 import { storage } from "./storage";
 import { insertScholarshipApplicationSchema } from "@shared/schema";
 import { z } from "zod";
@@ -9,6 +11,26 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Mount auth endpoints under /auth
+  app.use("/auth", authRouter);
+
+  // tonode handler: accepts small set of actions to bridge client/edge
+  app.post("/tonode", express.json(), async (req, res) => {
+    try {
+      const { action, provider, code } = req.body || {};
+      if (action === "exchange" && provider) {
+        // For dev: simulate the exchange by redirecting to auth callback
+        const callbackPath = `/auth/callback/${provider}`;
+        // internally call the callback route by issuing a redirect response
+        return res.json({ ok: true, redirect: callbackPath, note: "Client should follow redirect" });
+      }
+
+      return res.status(400).json({ message: "Unknown tonode action" });
+    } catch (err) {
+      console.error("tonode handler error:", err);
+      return res.status(500).json({ message: "tonode handler failed" });
+    }
+  });
   
   app.get("/api/applications", async (req, res) => {
     try {
@@ -44,7 +66,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/applications", async (req, res) => {
+  app.post("/api/applications", requireSession, async (req, res) => {
     try {
       const validationResult = insertScholarshipApplicationSchema.safeParse(req.body);
       

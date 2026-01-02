@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import NotFound from "@/pages/not-found";
 import ScholarshipForm from "@/pages/scholarship-form";
+import SignIn from "@/pages/sign-in";
 import ApplicationsList from "@/pages/applications-list";
 import { GraduationCap, FileText, ListOrdered } from "lucide-react";
 
@@ -54,6 +55,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={ScholarshipForm} />
+      <Route path="/sign-in" component={SignIn} />
       <Route path="/applications" component={ApplicationsList} />
       <Route component={NotFound} />
     </Switch>

@@ -44,7 +44,11 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      // Treat 401 as a non-exception for common session checks so anonymous
+      // page loads (no cookie) don't produce noisy runtime errors in the
+      // browser console. Queries that need stricter handling can opt-in to
+      // throwing by using a custom queryFn.
+      queryFn: getQueryFn({ on401: "returnNull" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
