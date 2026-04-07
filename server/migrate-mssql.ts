@@ -4,8 +4,8 @@ async function run() {
   const pool = await getPool();
 
   const createUsers = `
-    IF OBJECT_ID('dbo.users', 'U') IS NULL
-    CREATE TABLE dbo.users (
+    IF OBJECT_ID('sca.users', 'U') IS NULL
+    CREATE TABLE sca.users (
       id varchar(36) PRIMARY KEY DEFAULT (CONVERT(varchar(36), NEWID())),
       username nvarchar(255) NOT NULL UNIQUE,
       password nvarchar(1024) NOT NULL
@@ -13,8 +13,8 @@ async function run() {
   `;
 
   const createApplications = `
-    IF OBJECT_ID('dbo.scholarship_applications', 'U') IS NULL
-    CREATE TABLE dbo.scholarship_applications (
+    IF OBJECT_ID('sca.scholarship_applications', 'U') IS NULL
+    CREATE TABLE sca.scholarship_applications (
       id varchar(36) PRIMARY KEY DEFAULT (CONVERT(varchar(36), NEWID())),
       submission_date date NOT NULL DEFAULT (CONVERT(date, GETDATE())),
       semester1_amount int NULL,
@@ -57,8 +57,8 @@ async function run() {
   `;
 
   const createGuardians = `
-    IF OBJECT_ID('dbo.guardians', 'U') IS NULL
-    CREATE TABLE dbo.guardians (
+    IF OBJECT_ID('sca.guardians', 'U') IS NULL
+    CREATE TABLE sca.guardians (
       id int IDENTITY(1,1) PRIMARY KEY,
       application_id varchar(36) NOT NULL,
       surname nvarchar(max) NOT NULL,
@@ -67,22 +67,25 @@ async function run() {
       relation nvarchar(100) NOT NULL,
       telephone nvarchar(100) NOT NULL,
       address nvarchar(max) NOT NULL,
-      CONSTRAINT FK_guardians_application FOREIGN KEY (application_id) REFERENCES dbo.scholarship_applications(id) ON DELETE CASCADE
+      CONSTRAINT FK_guardians_application FOREIGN KEY (application_id) REFERENCES sca.scholarship_applications(id) ON DELETE CASCADE
     );
   `;
 
   const createAffiliations = `
-    IF OBJECT_ID('dbo.affiliations', 'U') IS NULL
-    CREATE TABLE dbo.affiliations (
+    IF OBJECT_ID('sca.affiliations', 'U') IS NULL
+    CREATE TABLE sca.affiliations (
       id int IDENTITY(1,1) PRIMARY KEY,
       application_id varchar(36) NOT NULL,
       name nvarchar(max) NOT NULL,
-      CONSTRAINT FK_affiliations_application FOREIGN KEY (application_id) REFERENCES dbo.scholarship_applications(id) ON DELETE CASCADE
+      CONSTRAINT FK_affiliations_application FOREIGN KEY (application_id) REFERENCES sca.scholarship_applications(id) ON DELETE CASCADE
     );
   `;
 
   console.log("Running MSSQL migrations...");
-  await pool.request().batch(createUsers + '\n' + createApplications + '\n' + createGuardians + '\n' + createAffiliations);
+  await pool.request().batch(createUsers);
+  await pool.request().batch(createApplications);
+  await pool.request().batch(createGuardians);
+  await pool.request().batch(createAffiliations);
   console.log("MSSQL migrations complete.");
   await pool.close();
 }
