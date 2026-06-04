@@ -1,8 +1,9 @@
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { insertScholarshipApplicationSchema, type InsertScholarshipApplication } from "@shared/schema";
+import { insertScholarshipApplicationSchema, type InsertScholarshipApplication, type FormQuestion } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +22,89 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { User, Phone, BookOpen, Trophy, Users, DollarSign, Loader2, Plus, Trash2 } from "lucide-react";
+import { User, Phone, BookOpen, Trophy, Users, DollarSign, Loader2, Plus, Trash2, FileText, CheckCircle2 } from "lucide-react";
 import utechGateImage from "@assets/utech-gate_1766011067612.jpg";
+
+function FileUploadField({
+  label,
+  onChange,
+  value,
+  accept,
+  testId
+}: {
+  label: string;
+  onChange: (path: string) => void;
+  value?: string;
+  accept?: string;
+  testId?: string;
+}) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to upload file");
+      }
+
+      const data = await res.json();
+      onChange(data.filePath);
+    } catch (err: any) {
+      setUploadError(err.message || "Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <FormItem className="space-y-2">
+      <FormLabel>{label}</FormLabel>
+      <FormControl>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <Input 
+              type="file" 
+              accept={accept}
+              onChange={handleFileChange} 
+              disabled={isUploading}
+              data-testid={testId}
+              className="cursor-pointer file:text-primary file:hover:text-primary-hover file:font-semibold"
+            />
+            {isUploading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+          </div>
+          {value && (
+            <div className="text-xs text-green-600 bg-green-50/50 p-2 rounded border border-green-200 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+              <span className="font-semibold">Uploaded:</span>
+              <span className="truncate flex-1 font-mono">{value.split('/').pop()}</span>
+            </div>
+          )}
+          {uploadError && (
+            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
+              {uploadError}
+            </div>
+          )}
+        </div>
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  );
+}
 
 export default function ScholarshipForm() {
   const { toast } = useToast();
@@ -77,6 +159,11 @@ export default function ScholarshipForm() {
     name: "affiliations",
   });
 
+  // Query to get form configuration questions
+  const { data: questions, isLoading: isLoadingQuestions } = useQuery<FormQuestion[]>({
+    queryKey: ["/api/form-questions"],
+  });
+
   const submitMutation = useMutation({
     mutationFn: async (data: InsertScholarshipApplication) => {
       const res = await apiRequest("POST", "/api/applications", data);
@@ -105,6 +192,11 @@ export default function ScholarshipForm() {
 
   const didTransfer = form.watch("didTransfer");
   const isNationalRep = form.watch("nationalRepresentative");
+
+  // Get active questions and sort them by sortOrder
+  const activeQuestions = questions
+    ?.filter((q) => q.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -141,608 +233,710 @@ export default function ScholarshipForm() {
           </p>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            
+        {isLoadingQuestions ? (
+          <div className="space-y-6">
             <Card>
-              <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                <DollarSign className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl">Scholarship Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="semester1Amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Semester 1 Amount ($)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Enter amount"
-                            data-testid="input-semester1-amount"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            value={field.value || ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="semester2Amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Semester 2 Amount ($)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Enter amount"
-                            data-testid="input-semester2-amount"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            value={field.value || ""}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <CardContent className="h-40 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading form configuration...</p>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium mb-3 block">Scholarship Towards</Label>
-                  <div className="flex flex-wrap gap-6">
-                    <FormField
-                      control={form.control}
-                      name="scholarshipTuition"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center gap-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-tuition"
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer mb-0">Tuition</FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="scholarshipAccommodation"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center gap-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-accommodation"
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer mb-0">Accommodation</FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="scholarshipBooks"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center gap-2">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-books"
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer mb-0">Books</FormLabel>
-                        </FormItem>
-                      )}
-                    />
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-3 pb-4 border-b">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-xl">Application Fields</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                  {activeQuestions.map((q) => {
+                    switch (q.fieldKey) {
+                      case "semester1Amount":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="semester1Amount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="Enter amount"
+                                    data-testid="input-semester1-amount"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                    value={field.value || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "semester2Amount":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="semester2Amount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording}</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="Enter amount"
+                                    data-testid="input-semester2-amount"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                    value={field.value || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "scholarshipTuition":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="scholarshipTuition"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0 py-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="checkbox-tuition"
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal cursor-pointer">{q.wording}</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "scholarshipAccommodation":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="scholarshipAccommodation"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0 py-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="checkbox-accommodation"
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal cursor-pointer">{q.wording}</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "scholarshipBooks":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="scholarshipBooks"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0 py-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="checkbox-books"
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal cursor-pointer">{q.wording}</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "surname":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="surname"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter surname" data-testid="input-surname" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "firstName":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="firstName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter first name" data-testid="input-firstname" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "middleName":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="middleName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording}</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter middle name" data-testid="input-middlename" {...field} value={field.value || ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "gender":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="gender"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} data-testid="select-gender">
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select gender" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="M">Male</SelectItem>
+                                    <SelectItem value="F">Female</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "nationality":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="nationality"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter nationality" data-testid="input-nationality" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "dateOfBirth":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="dateOfBirth"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="yyyy-mm-dd" data-testid="input-dob" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "age":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="age"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    placeholder="Enter age"
+                                    data-testid="input-age"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                    value={field.value || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "studentId":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="studentId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter student ID" data-testid="input-studentid" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "projectedGraduationYear":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="projectedGraduationYear"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 2026" data-testid="input-grad-year" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "telephone":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="telephone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 876-555-1234" data-testid="input-phone" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "email":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input type="email" placeholder="e.g., student@utech.edu.jm" data-testid="input-email" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "homeAddress":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="homeAddress"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Textarea placeholder="Enter home address" className="resize-none" data-testid="input-address" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "facultySchool":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="facultySchool"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., FENC" data-testid="input-faculty" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "courseOfStudy":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="courseOfStudy"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., B.Sc. in Computing" data-testid="input-course" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "yearStartedUtech":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="yearStartedUtech"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 2022" data-testid="input-start-year" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "gpa":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="gpa"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 3.45" data-testid="input-gpa" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "programmeType":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="programmeType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} data-testid="select-prog-type">
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select programme type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="Undergraduate">Undergraduate</SelectItem>
+                                    <SelectItem value="Postgraduate">Postgraduate</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "programmeMode":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="programmeMode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} data-testid="select-prog-mode">
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select programme mode" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="Full-time">Full-time</SelectItem>
+                                    <SelectItem value="Part-time">Part-time</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "yearInSchool":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="yearInSchool"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} data-testid="select-year-in-school">
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select year in school" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="1st">1st Year</SelectItem>
+                                    <SelectItem value="2nd">2nd Year</SelectItem>
+                                    <SelectItem value="3rd">3rd Year</SelectItem>
+                                    <SelectItem value="4th">4th Year</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "didTransfer":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="didTransfer"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-3 space-y-0 py-2">
+                                <FormLabel className="mb-0">{q.wording}</FormLabel>
+                                <FormControl>
+                                  <RadioGroup
+                                    onValueChange={(value) => field.onChange(value === "yes")}
+                                    value={field.value ? "yes" : "no"}
+                                    className="flex gap-4"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem value="yes" id="transfer-yes" data-testid="radio-transfer-yes" />
+                                      <Label htmlFor="transfer-yes" className="font-normal cursor-pointer">Yes</Label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem value="no" id="transfer-no" data-testid="radio-transfer-no" />
+                                      <Label htmlFor="transfer-no" className="font-normal cursor-pointer">No</Label>
+                                    </div>
+                                  </RadioGroup>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "transferProgrammeName":
+                        return didTransfer ? (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="transferProgrammeName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording}</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter programme name" data-testid="input-transfer-programme" {...field} value={field.value || ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        ) : null;
+                      case "sport":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="sport"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., Track & Field" data-testid="input-sport" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "eventPosition":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="eventPosition"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording} *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 100m Sprint, Goalkeeper" data-testid="input-event" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "majorAccomplishments":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="majorAccomplishments"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording}</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="List your major achievements in academics and sports..."
+                                    className="resize-none min-h-[100px]"
+                                    data-testid="input-accomplishments"
+                                    {...field}
+                                    value={field.value || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "nationalRepresentative":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="nationalRepresentative"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-3 space-y-0 py-2">
+                                <FormLabel className="mb-0">{q.wording}</FormLabel>
+                                <FormControl>
+                                  <RadioGroup
+                                    onValueChange={(value) => field.onChange(value === "yes")}
+                                    value={field.value ? "yes" : "no"}
+                                    className="flex gap-4"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem value="yes" id="national-yes" data-testid="radio-national-yes" />
+                                      <Label htmlFor="national-yes" className="font-normal cursor-pointer">Yes</Label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem value="no" id="national-no" data-testid="radio-national-no" />
+                                      <Label htmlFor="national-no" className="font-normal cursor-pointer">No</Label>
+                                    </div>
+                                  </RadioGroup>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      case "nationalRepDetails":
+                        return isNationalRep ? (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="nationalRepDetails"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{q.wording}</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 2023 - Senior Team" data-testid="input-national-details" {...field} value={field.value || ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        ) : null;
+                      case "photoIdPath":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="photoIdPath"
+                            render={({ field }) => (
+                              <FileUploadField
+                                label={q.wording}
+                                onChange={field.onChange}
+                                value={field.value || undefined}
+                                accept="image/*"
+                                testId="input-photoid-file"
+                              />
+                            )}
+                          />
+                        );
+                      case "progressReportPath":
+                        return (
+                          <FormField
+                            key={q.fieldKey}
+                            control={form.control}
+                            name="progressReportPath"
+                            render={({ field }) => (
+                              <FileUploadField
+                                label={q.wording}
+                                onChange={field.onChange}
+                                value={field.value || undefined}
+                                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                testId="input-progress-file"
+                              />
+                            )}
+                          />
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </CardContent>
+              </Card>
+
+              {/* Affiliations Card */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-xl">Affiliations (Clubs, Organizations, etc.)</CardTitle>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                <User className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl">Personal Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="surname"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Surname *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter surname" data-testid="input-surname" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter first name" data-testid="input-firstname" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="middleName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Middle Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter middle name" data-testid="input-middlename" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender *</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex gap-6"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="M" id="male" data-testid="radio-male" />
-                              <Label htmlFor="male" className="font-normal cursor-pointer">Male</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="F" id="female" data-testid="radio-female" />
-                              <Label htmlFor="female" className="font-normal cursor-pointer">Female</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="nationality"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nationality *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Jamaican" data-testid="input-nationality" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="dateOfBirth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date of Birth *</FormLabel>
-                        <FormControl>
-                          <Input type="date" data-testid="input-dob" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="age"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Age *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Enter age"
-                            data-testid="input-age"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                <Phone className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="studentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Student ID *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter student ID" data-testid="input-studentid" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="projectedGraduationYear"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Projected Year of Graduation *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 2026" data-testid="input-gradyear" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="telephone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telephone Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 876-555-1234" data-testid="input-phone" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="student@utech.edu.jm" data-testid="input-email" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="homeAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Home Address *</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Enter your full home address"
-                          className="resize-none"
-                          data-testid="input-address"
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                <BookOpen className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl">Academic Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="facultySchool"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Faculty/School *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Faculty of Engineering & Computing" data-testid="input-faculty" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="courseOfStudy"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Course of Study *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Computer Science" data-testid="input-course" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="yearStartedUtech"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Year Started at UTECH *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 2022" data-testid="input-startyear" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="gpa"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GPA *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 3.50" data-testid="input-gpa" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="programmeType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Type of Programme *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-programme-type">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Undergraduate">Undergraduate</SelectItem>
-                            <SelectItem value="Graduate">Graduate</SelectItem>
-                            <SelectItem value="Diploma">Diploma</SelectItem>
-                            <SelectItem value="Certificate">Certificate</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="programmeMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Programme Mode *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-programme-mode">
-                              <SelectValue placeholder="Select mode" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Full-time">Full-time</SelectItem>
-                            <SelectItem value="Part-time">Part-time</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="yearInSchool"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Year in School *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-year">
-                              <SelectValue placeholder="Select year" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="1st">1st Year</SelectItem>
-                            <SelectItem value="2nd">2nd Year</SelectItem>
-                            <SelectItem value="3rd">3rd Year</SelectItem>
-                            <SelectItem value="4th">4th Year</SelectItem>
-                            <SelectItem value="5th">5th Year</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="didTransfer"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-3">
-                        <FormLabel className="mb-0">Did you transfer from another programme?</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={(value) => field.onChange(value === "yes")}
-                            value={field.value ? "yes" : "no"}
-                            className="flex gap-4"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="yes" id="transfer-yes" data-testid="radio-transfer-yes" />
-                              <Label htmlFor="transfer-yes" className="font-normal cursor-pointer">Yes</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="no" id="transfer-no" data-testid="radio-transfer-no" />
-                              <Label htmlFor="transfer-no" className="font-normal cursor-pointer">No</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  {didTransfer && (
-                    <FormField
-                      control={form.control}
-                      name="transferProgrammeName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Name of Previous Programme</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter programme name" data-testid="input-transfer-programme" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                <Trophy className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl">Athletic Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="sport"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sport *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Track & Field" data-testid="input-sport" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="eventPosition"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Event/Position *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 100m Sprint, Goalkeeper" data-testid="input-event" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="majorAccomplishments"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Major Accomplishments (Academic & Sport)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="List your major achievements in academics and sports..."
-                          className="resize-none min-h-[100px]"
-                          data-testid="input-accomplishments"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="nationalRepresentative"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-3">
-                        <FormLabel className="mb-0">National Representative?</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={(value) => field.onChange(value === "yes")}
-                            value={field.value ? "yes" : "no"}
-                            className="flex gap-4"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="yes" id="national-yes" data-testid="radio-national-yes" />
-                              <Label htmlFor="national-yes" className="font-normal cursor-pointer">Yes</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="no" id="national-no" data-testid="radio-national-no" />
-                              <Label htmlFor="national-no" className="font-normal cursor-pointer">No</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  {isNationalRep && (
-                    <FormField
-                      control={form.control}
-                      name="nationalRepDetails"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Year and Category</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., 2023 - Senior Team" data-testid="input-national-details" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Affiliations (Clubs, Organizations, etc.)</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => appendAffiliation({ name: "" })}
-                      data-testid="button-add-affiliation"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => appendAffiliation({ name: "" })}
+                    data-testid="button-add-affiliation"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
                   {affiliationFields.length === 0 && (
                     <p className="text-sm text-muted-foreground italic">No affiliations added yet. Click "Add" to add one.</p>
                   )}
@@ -777,169 +971,170 @@ export default function ScholarshipForm() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-xl">Parent/Guardian/Contact Person</CardTitle>
-                </div>
+              {/* Parent/Guardian Card */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-xl">Parent/Guardian/Contact Person</CardTitle>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => appendGuardian({ surname: "", firstName: "", middleInitial: "", relation: "", telephone: "", address: "" })}
+                    data-testid="button-add-guardian"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Guardian
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {guardianFields.map((field, index) => (
+                    <Card key={field.id} className="border-dashed">
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">Guardian {index + 1}</span>
+                          {guardianFields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeGuardian(index)}
+                              data-testid={`button-remove-guardian-${index}`}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`guardians.${index}.surname`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Surname *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter surname" data-testid={`input-guardian-surname-${index}`} {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`guardians.${index}.firstName`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>First Name *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter first name" data-testid={`input-guardian-firstname-${index}`} {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`guardians.${index}.middleInitial`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Middle Initial</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="M" maxLength={1} data-testid={`input-guardian-middle-${index}`} {...field} value={field.value || ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`guardians.${index}.relation`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Relation *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., Mother, Father, Guardian" data-testid={`input-guardian-relation-${index}`} {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`guardians.${index}.telephone`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Telephone Number *</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., 876-555-1234" data-testid={`input-guardian-phone-${index}`} {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name={`guardians.${index}.address`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address *</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Enter guardian's address"
+                                  className="resize-none"
+                                  data-testid={`input-guardian-address-${index}`}
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {form.formState.errors.guardians && (
+                    <p className="text-sm text-destructive">{form.formState.errors.guardians.message}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end gap-4 pt-4">
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => appendGuardian({ surname: "", firstName: "", middleInitial: "", relation: "", telephone: "", address: "" })}
-                  data-testid="button-add-guardian"
+                  variant="outline"
+                  onClick={() => form.reset()}
+                  data-testid="button-clear"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Guardian
+                  Clear Form
                 </Button>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {guardianFields.map((field, index) => (
-                  <Card key={field.id} className="border-dashed">
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground">Guardian {index + 1}</span>
-                        {guardianFields.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeGuardian(index)}
-                            data-testid={`button-remove-guardian-${index}`}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField
-                          control={form.control}
-                          name={`guardians.${index}.surname`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Surname *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Enter surname" data-testid={`input-guardian-surname-${index}`} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`guardians.${index}.firstName`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First Name *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Enter first name" data-testid={`input-guardian-firstname-${index}`} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`guardians.${index}.middleInitial`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Middle Initial</FormLabel>
-                              <FormControl>
-                                <Input placeholder="M" maxLength={1} data-testid={`input-guardian-middle-${index}`} {...field} value={field.value || ""} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name={`guardians.${index}.relation`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Relation *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., Mother, Father, Guardian" data-testid={`input-guardian-relation-${index}`} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`guardians.${index}.telephone`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Telephone Number *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., 876-555-1234" data-testid={`input-guardian-phone-${index}`} {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <FormField
-                        control={form.control}
-                        name={`guardians.${index}.address`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Address *</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Enter guardian's address"
-                                className="resize-none"
-                                data-testid={`input-guardian-address-${index}`}
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-                ))}
-                {form.formState.errors.guardians && (
-                  <p className="text-sm text-destructive">{form.formState.errors.guardians.message}</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end gap-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => form.reset()}
-                data-testid="button-clear"
-              >
-                Clear Form
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitMutation.isPending}
-                className="px-8"
-                data-testid="button-submit"
-              >
-                {submitMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Application"
-                )}
-              </Button>
-            </div>
-          </form>
-        </Form>
+                <Button
+                  type="submit"
+                  disabled={submitMutation.isPending}
+                  className="px-8"
+                  data-testid="button-submit"
+                >
+                  {submitMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Application"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        )}
       </div>
     </div>
   );

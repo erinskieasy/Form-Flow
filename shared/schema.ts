@@ -65,6 +65,10 @@ export const scholarshipApplications = pgTable("scholarship_applications", {
   scholarshipTuition: boolean("scholarship_tuition").notNull().default(false),
   scholarshipAccommodation: boolean("scholarship_accommodation").notNull().default(false),
   scholarshipBooks: boolean("scholarship_books").notNull().default(false),
+
+  // File Uploads
+  photoIdPath: text("photo_id_path"),
+  progressReportPath: text("progress_report_path"),
 });
 
 // Guardians table - supports multiple guardians per application
@@ -131,3 +135,19 @@ export type ScholarshipApplicationWithRelations = ScholarshipApplication & {
   guardians: Guardian[];
   affiliations: Affiliation[];
 };
+
+// Form Questions Schema
+export const formQuestions = pgTable("form_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fieldKey: text("field_key").notNull().unique(),
+  wording: text("wording").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertFormQuestionSchema = createInsertSchema(formQuestions).omit({
+  id: true,
+});
+
+export type InsertFormQuestion = z.infer<typeof insertFormQuestionSchema>;
+export type FormQuestion = typeof formQuestions.$inferSelect;

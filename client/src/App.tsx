@@ -1,4 +1,4 @@
-import { Switch, Route, Link, useLocation } from "wouter";
+import { Router as WouterRouter, Switch, Route, Link, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import NotFound from "@/pages/not-found";
 import ScholarshipForm from "@/pages/scholarship-form";
 import ApplicationsList from "@/pages/applications-list";
+import AdminConfig from "@/pages/admin-config";
 import { GraduationCap, FileText, ListOrdered } from "lucide-react";
 
 function Navigation() {
@@ -55,6 +56,7 @@ function Router() {
     <Switch>
       <Route path="/" component={ScholarshipForm} />
       <Route path="/applications" component={ApplicationsList} />
+      <Route path="/admin/config" component={AdminConfig} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -63,6 +65,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+	<WouterRouter base="/scholarship">
       <TooltipProvider>
         <div className="min-h-screen bg-background">
           <Navigation />
@@ -70,6 +73,7 @@ function App() {
         </div>
         <Toaster />
       </TooltipProvider>
+	</WouterRouter>
     </QueryClientProvider>
   );
 }

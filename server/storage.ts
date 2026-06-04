@@ -3,13 +3,16 @@ import {
   scholarshipApplications,
   guardians,
   affiliations,
+  formQuestions,
   type User, 
   type InsertUser,
   type ScholarshipApplication,
   type InsertScholarshipApplication,
   type ScholarshipApplicationWithRelations,
   type Guardian,
-  type Affiliation
+  type Affiliation,
+  type FormQuestion,
+  type InsertFormQuestion
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, desc } from "drizzle-orm";
@@ -25,7 +28,11 @@ export interface IStorage {
   getAllApplications(): Promise<ScholarshipApplicationWithRelations[]>;
   getApplicationById(id: string): Promise<ScholarshipApplicationWithRelations | undefined>;
   createApplication(application: InsertScholarshipApplication): Promise<ScholarshipApplicationWithRelations>;
+  updateApplication(id: string, updates: any): Promise<ScholarshipApplicationWithRelations>;
   searchApplications(query: string): Promise<ScholarshipApplicationWithRelations[]>;
+
+  getFormQuestions(): Promise<FormQuestion[]>;
+  saveFormQuestions(questions: InsertFormQuestion[]): Promise<FormQuestion[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -113,7 +120,7 @@ export class DatabaseStorage implements IStorage {
       return Promise.all(apps.map((app) => this.enrichApplication(app)));
     }
     const apps = await db.select().from(scholarshipApplications).orderBy(desc(scholarshipApplications.submissionDate));
-    return Promise.all(apps.map(app => this.enrichApplication(app)));
+    return Promise.all(apps.map((app: any) => this.enrichApplication(app)));
   }
 
   async getApplicationById(id: string): Promise<ScholarshipApplicationWithRelations | undefined> {
@@ -201,7 +208,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return await db.transaction(async (tx) => {
+    return await db.transaction(async (tx: any) => {
       const [newApplication] = await tx.insert(scholarshipApplications).values(applicationData).returning();
 
       const insertedGuardians = await Promise.all(
@@ -240,8 +247,6 @@ export class DatabaseStorage implements IStorage {
       return Promise.all(apps.map(app => this.enrichApplication(app)));
     }
 
-    if (!db) throw new Error("Postgres DATABASE_URL not configured");
-
     const apps = await db.select().from(scholarshipApplications).where(
       or(
         ilike(scholarshipApplications.firstName, searchPattern),
@@ -251,7 +256,170 @@ export class DatabaseStorage implements IStorage {
         ilike(scholarshipApplications.facultySchool, searchPattern)
       )
     ).orderBy(desc(scholarshipApplications.submissionDate));
-    return Promise.all(apps.map(app => this.enrichApplication(app)));
+    return Promise.all(apps.map((app: any) => this.enrichApplication(app)));
+  }
+
+  async getFormQuestions(): Promise<FormQuestion[]> {
+    if (useMssql) {
+      const pool = await this.ensureMssql();
+      const result = await pool.request().query("SELECT * FROM sca.form_questions ORDER BY sort_order ASC");
+      return mapRowsToCamel(result.recordset) as unknown as FormQuestion[];
+    }
+    return await db.select().from(formQuestions).orderBy(formQuestions.sortOrder);
+  }
+
+  async saveFormQuestions(questions: InsertFormQuestion[]): Promise<FormQuestion[]> {
+    if (useMssql) {
+      const pool = await this.ensureMssql();
+      const transaction = new mssql.Transaction(pool);
+      await transaction.begin();
+      try {
+        for (const q of questions) {
+          const req = new mssql.Request(transaction);
+          req.input("fieldKey", q.fieldKey);
+          req.input("wording", q.wording);
+          req.input("sortOrder", q.sortOrder);
+          req.input("isActive", q.isActive ? 1 : 0);
+          await req.query(
+            `UPDATE sca.form_questions 
+             SET wording = @wording, sort_order = @sortOrder, is_active = @isActive 
+             WHERE field_key = @fieldKey`
+          );
+        }
+        await transaction.commit();
+      } catch (err) {
+        await transaction.rollback();
+        throw err;
+      }
+      return this.getFormQuestions();
+    }
+
+    await db.transaction(async (tx: any) => {
+      for (const q of questions) {
+        await tx
+          .insert(formQuestions)
+          .values(q)
+          .onConflictDoUpdate({
+            target: formQuestions.fieldKey,
+            set: { wording: q.wording, sortOrder: q.sortOrder, isActive: q.isActive },
+          });
+      }
+    });
+    return this.getFormQuestions();
+  }
+
+  async updateApplication(id: string, updates: any): Promise<ScholarshipApplicationWithRelations> {
+    const appColumns = new Set([
+      "semester1Amount", "semester2Amount", "surname", "firstName", "middleName",
+      "gender", "nationality", "dateOfBirth", "age", "studentId", "projectedGraduationYear",
+      "telephone", "email", "homeAddress", "facultySchool", "courseOfStudy",
+      "yearStartedUtech", "gpa", "programmeType", "programmeMode", "yearInSchool",
+      "didTransfer", "transferProgrammeName", "sport", "eventPosition", "majorAccomplishments",
+      "nationalRepresentative", "nationalRepDetails", "scholarshipTuition", "scholarshipAccommodation",
+      "scholarshipBooks", "photoIdPath", "progressReportPath"
+    ]);
+
+    if (useMssql) {
+      const pool = await this.ensureMssql();
+      const transaction = new mssql.Transaction(pool);
+      await transaction.begin();
+      try {
+        const appUpdates: Record<string, any> = {};
+        for (const [key, value] of Object.entries(updates)) {
+          if (appColumns.has(key)) {
+            appUpdates[key] = value;
+          }
+        }
+
+        if (Object.keys(appUpdates).length > 0) {
+          const request = new mssql.Request(transaction);
+          const setClause: string[] = [];
+          let idx = 0;
+          for (const [key, value] of Object.entries(appUpdates)) {
+            idx += 1;
+            const param = `p${idx}`;
+            setClause.push(`[${camelToSnake(key)}] = @${param}`);
+            request.input(param, value === undefined ? null : value);
+          }
+          request.input("id", id);
+          await request.query(`UPDATE sca.scholarship_applications SET ${setClause.join(", ")} WHERE id = @id`);
+        }
+
+        // Handle guardians update
+        if (updates.guardians && Array.isArray(updates.guardians)) {
+          for (const g of updates.guardians) {
+            if (g.id) {
+              const gr = new mssql.Request(transaction);
+              gr.input("id", g.id);
+              gr.input("surname", g.surname);
+              gr.input("first_name", g.firstName);
+              gr.input("middle_initial", g.middleInitial ?? null);
+              gr.input("relation", g.relation);
+              gr.input("telephone", g.telephone);
+              gr.input("address", g.address);
+              await gr.query(`
+                UPDATE sca.guardians 
+                SET surname = @surname, first_name = @first_name, middle_initial = @middle_initial, 
+                    relation = @relation, telephone = @telephone, address = @address 
+                WHERE id = @id
+              `);
+            }
+          }
+        }
+
+        // Handle affiliations update
+        if (updates.affiliations && Array.isArray(updates.affiliations)) {
+          for (const a of updates.affiliations) {
+            if (a.id) {
+              const ar = new mssql.Request(transaction);
+              ar.input("id", a.id);
+              ar.input("name", a.name);
+              await ar.query(`UPDATE sca.affiliations SET name = @name WHERE id = @id`);
+            }
+          }
+        }
+
+        await transaction.commit();
+      } catch (err) {
+        await transaction.rollback();
+        throw err;
+      }
+      return (await this.getApplicationById(id))!;
+    }
+
+    // Postgres/drizzle implementation
+    await db.transaction(async (tx: any) => {
+      const appUpdates: Record<string, any> = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (appColumns.has(key)) {
+          appUpdates[key] = value;
+        }
+      }
+
+      if (Object.keys(appUpdates).length > 0) {
+        await tx.update(scholarshipApplications).set(appUpdates).where(eq(scholarshipApplications.id, id));
+      }
+
+      if (updates.guardians && Array.isArray(updates.guardians)) {
+        for (const g of updates.guardians) {
+          if (g.id) {
+            const { id: _, ...gData } = g;
+            await tx.update(guardians).set(gData).where(eq(guardians.id, g.id));
+          }
+        }
+      }
+
+      if (updates.affiliations && Array.isArray(updates.affiliations)) {
+        for (const a of updates.affiliations) {
+          if (a.id) {
+            const { id: _, ...aData } = a;
+            await tx.update(affiliations).set(aData).where(eq(affiliations.id, a.id));
+          }
+        }
+      }
+    });
+
+    return (await this.getApplicationById(id))!;
   }
 }
 

@@ -1,4 +1,27 @@
 import mssql from "mssql";
+// @ts-ignore
+import MessageIO from "tedious/lib/message-io";
+import net from "net";
+
+// Monkey-patch tedious MessageIO.prototype.startTls to bypass TLS IP SNI validation
+const originalStartTls = MessageIO.prototype.startTls;
+MessageIO.prototype.startTls = function (
+  credentialsDetails: any,
+  hostname: string,
+  trustServerCertificate: boolean,
+) {
+  console.log("[DEBUG MONKEYPATCH] startTls args:", { hostname, trustServerCertificate });
+  if (net.isIP(hostname)) {
+    console.log("[DEBUG MONKEYPATCH] hostname is IP, overriding to mssql.local");
+    hostname = "mssql.local";
+  }
+  return originalStartTls.call(
+    this,
+    credentialsDetails,
+    hostname,
+    trustServerCertificate,
+  );
+};
 
 if (!process.env.MSSQL_CONNECTION) {
   console.warn("MSSQL: no MSSQL_CONNECTION env var set");

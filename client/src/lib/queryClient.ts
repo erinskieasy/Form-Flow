@@ -7,14 +7,23 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const fetchUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
+  const adminPassword = sessionStorage.getItem("admin_password") || "";
+  const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
+  if (adminPassword) {
+    headers["x-admin-password"] = adminPassword;
+  }
+
+  const res = await fetch(fetchUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -29,7 +38,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const keyPath = queryKey.join("/") as string;
+    const fetchUrl = keyPath.startsWith("/") ? `${baseUrl}${keyPath}` : keyPath;
+    const adminPassword = sessionStorage.getItem("admin_password") || "";
+    const headers: Record<string, string> = {};
+    if (adminPassword) {
+      headers["x-admin-password"] = adminPassword;
+    }
+
+    const res = await fetch(fetchUrl, {
+      headers,
       credentials: "include",
     });
 

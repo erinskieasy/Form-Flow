@@ -4,7 +4,7 @@ async function run() {
   const pool = await getPool();
 
   // Insert a minimal application row
-  const insertSql = `INSERT INTO dbo.scholarship_applications (surname, first_name, gender, nationality, date_of_birth, age, student_id, projected_graduation_year, telephone, email, home_address, faculty_school, course_of_study, year_started_utech, gpa, programme_type, programme_mode, year_in_school, did_transfer, sport, event_position, national_representative, scholarship_tuition, scholarship_accommodation, scholarship_books)
+  const insertSql = `INSERT INTO sca.scholarship_applications (surname, first_name, gender, nationality, date_of_birth, age, student_id, projected_graduation_year, telephone, email, home_address, faculty_school, course_of_study, year_started_utech, gpa, programme_type, programme_mode, year_in_school, did_transfer, sport, event_position, national_representative, scholarship_tuition, scholarship_accommodation, scholarship_books)
   OUTPUT inserted.*
   VALUES (@surname, @first_name, @gender, @nationality, @date_of_birth, @age, @student_id, @projected_graduation_year, @telephone, @email, @home_address, @faculty_school, @course_of_study, @year_started_utech, @gpa, @programme_type, @programme_mode, @year_in_school, @did_transfer, @sport, @event_position, @national_representative, @scholarship_tuition, @scholarship_accommodation, @scholarship_books)`;
 
@@ -42,7 +42,7 @@ async function run() {
 
   // Read it back
   const id = inserted.id;
-  const selectRes = await pool.request().input("id", id).query("SELECT * FROM dbo.scholarship_applications WHERE id = @id");
+  const selectRes = await pool.request().input("id", id).query("SELECT * FROM sca.scholarship_applications WHERE id = @id");
   console.log("Selected:", selectRes.recordset[0]);
 
   await pool.close();
